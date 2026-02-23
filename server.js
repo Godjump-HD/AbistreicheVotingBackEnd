@@ -49,7 +49,21 @@ app.post("/save", (req, res) => {
     });
   });
 });
+// =====================
+// LOGIN
+// =====================
+app.get("/login", (req, res) => {
+  fs.readFile(filePath2, "utf8", (err, data) => {
+    if (err || !data) return res.json([]);
 
+    try {
+      const users = JSON.parse(data);
+      res.json(users); // sendet alle User zurück, Frontend filtert nach user/password
+    } catch {
+      res.json([]);
+    }
+  });
+});
 
 // =====================
 // LOAD ENTRIES
@@ -115,3 +129,4 @@ app.post("/vote", (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server läuft auf Port ${PORT}`);
 });
+
