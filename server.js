@@ -1,22 +1,23 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
+const cors = require("cors");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
-app.use(express.static("public"));
-
-const filePath = path.join(__dirname, "entries.txt");
-const filePath2 = path.join(__dirname, "users.txt");
-
-const cors = require("cors");
 app.use(cors());
 
-// Neuen Eintrag speichern
+const filePath = path.join(__dirname, "entries.json");
+const filePath2 = path.join(__dirname, "users.json");
+
+
+// =====================
+// SAVE ENTRY
+// =====================
 app.post("/save", (req, res) => {
-  const { text, titel, votes, votedBy } = req.body;
+  const { text, titel } = req.body;
 
   if (!text || !titel) {
     return res.status(400).json({ error: "Fehlende Daten" });
@@ -26,10 +27,20 @@ app.post("/save", (req, res) => {
     let entries = [];
 
     if (!err && data) {
-      entries = JSON.parse(data);
+      try {
+        entries = JSON.parse(data);
+      } catch {
+        entries = [];
+      }
     }
 
-    entries.push({ titel, text, votes, votedBy });
+    entries.push({
+      titel,
+      text,
+      votesGood: 0,
+      votesBad: 0,
+      votedBy: []
+    });
 
     fs.writeFile(filePath, JSON.stringify(entries, null, 2), (err) => {
       if (err) return res.status(500).json({ error: "Speichern fehlgeschlagen" });
@@ -40,105 +51,67 @@ app.post("/save", (req, res) => {
 });
 
 
-
-// Alle Einträge laden
+// =====================
+// LOAD ENTRIES
+// =====================
 app.get("/entries", (req, res) => {
   fs.readFile(filePath, "utf8", (err, data) => {
-    if (err || !data) {
-      return res.json([]);
-    }
+    if (err || !data) return res.json([]);
 
     try {
-      const parsed = JSON.parse(data);
-      res.json(parsed);
-    } catch (e) {
+      res.json(JSON.parse(data));
+    } catch {
       res.json([]);
     }
   });
 });
 
-app.post("/voteGood", (req, res) => {
-  const { titel, user } = req.body;
-  if (!titel || !user) {
+
+// =====================
+// VOTE
+// =====================
+app.post("/vote", (req, res) => {
+  const { titel, user, type } = req.body;
+
+  if (!titel || !user || !type) {
     return res.status(400).json({ error: "Fehlende Daten" });
   }
+
   fs.readFile(filePath, "utf8", (err, data) => {
     if (err || !data) return res.status(500).json({ error: "Dateifehler" });
+
     let entries;
+
     try {
       entries = JSON.parse(data);
     } catch {
       return res.status(500).json({ error: "JSON kaputt" });
     }
+
     const entry = entries.find(e => e.titel === titel);
+
     if (!entry) {
       return res.status(404).json({ error: "Eintrag nicht gefunden" });
     }
-    // Falls noch nicht existiert
-    if (!entry.votesGood) entry.votesGood = 0;
-    if (!entry.votedBy) entry.votedBy = [];
-    // Doppel-Vote verhindern
+
     if (entry.votedBy.includes(user)) {
       return res.status(403).json({ error: "Schon gevotet" });
     }
-    entry.votesGood++;
+
+    if (type === "good") entry.votesGood++;
+    if (type === "bad") entry.votesBad++;
+
     entry.votedBy.push(user);
+
     fs.writeFile(filePath, JSON.stringify(entries, null, 2), (err) => {
       if (err) return res.status(500).json({ error: "Speichern fehlgeschlagen" });
+
       res.json({ success: true });
     });
   });
 });
 
-app.post("/voteBad", (req, res) => {
-  const { titel, user } = req.body;
-  if (!titel || !user) {
-    return res.status(400).json({ error: "Fehlende Daten" });
-  }
-  fs.readFile(filePath, "utf8", (err, data) => {
-    if (err || !data) return res.status(500).json({ error: "Dateifehler" });
-    let entries;
-    try {
-      entries = JSON.parse(data);
-    } catch {
-      return res.status(500).json({ error: "JSON kaputt" });
-    }
-    const entry = entries.find(e => e.titel === titel);
-    if (!entry) {
-      return res.status(404).json({ error: "Eintrag nicht gefunden" });
-    }
-    // Falls noch nicht existiert
-    if (!entry.votesBad) entry.votesBad = 0;
-    if (!entry.votedBy) entry.votedBy = [];
-    // Doppel-Vote verhindern
-    if (entry.votedBy.includes(user)) {
-      return res.status(403).json({ error: "Schon gevotet" });
-    }
-    entry.votesBad++;
-    entry.votedBy.push(user);
-    fs.writeFile(filePath, JSON.stringify(entries, null, 2), (err) => {
-      if (err) return res.status(500).json({ error: "Speichern fehlgeschlagen" });
-      res.json({ success: true });
-    });
-  });
-});
-
-
-app.get("/login", (req, res) => {
-  fs.readFile(filePath2, "utf8", (err, data) => {
-    if (err || !data) {
-      return res.json([]);
-    }
-
-    try {
-      const parsed = JSON.parse(data);
-      res.json(parsed);
-    } catch (e) {
-      res.json([]);
-    }
-  })
-})
 
 app.listen(PORT, () => {
-  console.log(`Server läuft auf http://localhost:${PORT}`);
+  console.log(`Server läuft auf Port ${PORT}`);
 });
