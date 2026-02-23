@@ -1,0 +1,9 @@
+[
+  {
+    "titel": "Luftballons",
+    "text": "Den gesamten Aula Boden mit Luftballons bedecken",
+    "votesGood": 0,
+    "votesBad": 0,
+    "votedBy": []
+  }
+]
